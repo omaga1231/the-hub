@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, Plus, Pin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Post, Comment } from "@shared/schema";
 
@@ -27,6 +28,7 @@ interface DiscussionBoardProps {
 
 export function DiscussionBoard({ circleId }: DiscussionBoardProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [showNewPost, setShowNewPost] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -37,9 +39,10 @@ export function DiscussionBoard({ circleId }: DiscussionBoardProps) {
 
   const createPostMutation = useMutation({
     mutationFn: async (data: { title: string; content: string }) => {
+      if (!user) throw new Error("Not authenticated");
       return await apiRequest("POST", "/api/posts", {
         circleId,
-        userId: "current-user-id", // TODO: Replace with actual user ID
+        userId: user.id,
         title: data.title,
         content: data.content,
       });

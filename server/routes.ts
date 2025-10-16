@@ -93,7 +93,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (err) {
         return res.status(500).json({ error: "Failed to logout" });
       }
-      res.json({ message: "Logged out successfully" });
+      req.session.destroy((err) => {
+        if (err) {
+          return res.status(500).json({ error: "Failed to destroy session" });
+        }
+        res.clearCookie("connect.sid");
+        res.json({ message: "Logged out successfully" });
+      });
     });
   });
 
@@ -197,11 +203,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/my-circles", async (req, res) => {
+  app.get("/api/my-circles", requireAuth, async (req, res) => {
     try {
-      // TODO: Get actual user ID from session/auth
-      const userId = "current-user-id";
-      const circles = await storage.getStudyCirclesByUser(userId);
+      const user = req.user as User;
+      const circles = await storage.getStudyCirclesByUser(user.id);
       res.json(circles);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

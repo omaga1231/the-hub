@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Message } from "@shared/schema";
 
@@ -22,6 +23,7 @@ interface ChatRoomProps {
 
 export function ChatRoom({ circleId }: ChatRoomProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [message, setMessage] = useState("");
   const [ws, setWs] = useState<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -32,9 +34,10 @@ export function ChatRoom({ circleId }: ChatRoomProps) {
 
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
+      if (!user) throw new Error("Not authenticated");
       return await apiRequest("POST", "/api/messages", {
         circleId,
-        userId: "current-user-id", // TODO: Replace with actual user ID
+        userId: user.id,
         content,
       });
     },

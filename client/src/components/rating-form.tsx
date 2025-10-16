@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { InsertRating } from "@shared/schema";
 
@@ -14,6 +15,7 @@ interface RatingFormProps {
 
 export function RatingForm({ courseId }: RatingFormProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [difficulty, setDifficulty] = useState([3]);
   const [quality, setQuality] = useState([3]);
   const [workload, setWorkload] = useState([3]);
@@ -45,9 +47,11 @@ export function RatingForm({ courseId }: RatingFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+    
     createRatingMutation.mutate({
       courseId,
-      userId: "current-user-id", // TODO: Replace with actual user ID
+      userId: user.id,
       difficulty: difficulty[0],
       quality: quality[0],
       workload: workload[0],
