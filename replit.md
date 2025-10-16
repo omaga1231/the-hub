@@ -45,10 +45,10 @@ Preferred communication style: Simple, everyday language.
 - **WebSocket (ws library)** for real-time chat functionality
 
 **Authentication & Session Management:**
-- **Passport.js** with Local Strategy for username/password authentication
-- Session-based authentication with HTTP-only cookies
+- **Firebase Authentication** for email/password authentication with email verification
+- **Firebase Admin SDK** for backend token verification and custom domain email sending
 - Email validation requiring `.edu` domains for college verification
-- **bcrypt** for password hashing (10 rounds)
+- Hybrid approach: Firebase handles authentication, PostgreSQL stores user profiles with Firebase UIDs as foreign keys
 
 **API Design:**
 - RESTful endpoints under `/api/*` namespace
@@ -73,7 +73,7 @@ Preferred communication style: Simple, everyday language.
 
 **Core Entities:**
 
-1. **Users**: Authentication, profile data (username, email, fullName, bio, avatar)
+1. **Users**: Authentication, profile data (username, email, fullName, bio, avatar, isAdmin for moderation privileges)
 2. **Colleges**: Institution records (name, abbreviation, description)
 3. **Courses**: Course catalog (code, name, description, department) linked to colleges
 4. **Study Circles**: Private/public groups linked to specific courses (name, description, privacy settings)
