@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   fullName: text("full_name").notNull(),
   avatar: text("avatar"),
   bio: text("bio"),
+  isAdmin: boolean("is_admin").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
