@@ -3,13 +3,13 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { UserPlus } from "lucide-react";
 
 const signupSchema = z.object({
@@ -33,6 +33,7 @@ export default function Signup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
@@ -45,27 +46,50 @@ export default function Signup() {
     },
   });
 
-  const signupMutation = useMutation({
-    mutationFn: async (data: SignupForm) => {
-      const { confirmPassword, ...signupData } = data;
-      const res = await apiRequest("POST", "/api/auth/signup", signupData);
-      return await res.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Welcome to The Hub!",
-        description: "Your account has been created successfully.",
-      });
-      window.location.href = "/";
-    },
-    onError: (error: any) => {
-      setError(error.message || "Failed to create account");
-    },
-  });
-
-  const onSubmit = (data: SignupForm) => {
+  const onSubmit = async (data: SignupForm) => {
     setError("");
-    signupMutation.mutate(data);
+    setIsLoading(true);
+
+    try {
+      // Create user with Firebase
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        data.email,
+        data.password
+      );
+
+      // Update user profile with display name
+      await updateProfile(userCredential.user, {
+        displayName: data.fullName,
+      });
+
+      // Send email verification
+      await sendEmailVerification(userCredential.user);
+
+      toast({
+        title: "Account created successfully!",
+        description: "Please check your email to verify your account before signing in.",
+      });
+
+      // Redirect to login
+      setLocation("/login");
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      
+      // Handle Firebase auth errors
+      let errorMessage = "Failed to create account";
+      if (error.code === "auth/email-already-in-use") {
+        errorMessage = "This email is already registered";
+      } else if (error.code === "auth/weak-password") {
+        errorMessage = "Password is too weak";
+      } else if (error.code === "auth/invalid-email") {
+        errorMessage = "Invalid email address";
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -184,10 +208,10 @@ export default function Signup() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={signupMutation.isPending}
+                disabled={isLoading}
                 data-testid="button-signup"
               >
-                {signupMutation.isPending ? "Creating account..." : "Create account"}
+                {isLoading ? "Creating account..." : "Create account"}
               </Button>
             </form>
           </Form>
