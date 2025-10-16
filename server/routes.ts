@@ -293,6 +293,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/ratings/:id", requireFirebaseAuth, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check if user is admin
+      const user = await storage.getUserByFirebaseUid(req.user!.uid);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Only admins can delete ratings" });
+      }
+
+      await storage.deleteRating(id);
+      res.status(200).json({ message: "Rating deleted successfully" });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // Messages
   app.get("/api/circles/:id/messages", async (req, res) => {
     try {

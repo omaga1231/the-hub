@@ -59,6 +59,7 @@ export interface IStorage {
   // Ratings
   getRatings(courseId: string): Promise<Rating[]>;
   createRating(rating: InsertRating): Promise<Rating>;
+  deleteRating(id: string): Promise<void>;
 
   // Messages
   getMessages(circleId: string): Promise<Message[]>;
@@ -249,6 +250,10 @@ export class DatabaseStorage implements IStorage {
       .values(insertRating)
       .returning();
     return rating;
+  }
+
+  async deleteRating(id: string): Promise<void> {
+    await db.delete(ratings).where(eq(ratings.id, id));
   }
 
   // Messages
