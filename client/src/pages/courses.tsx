@@ -1,10 +1,12 @@
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, Users, Star } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BookOpen, Users, Star, Filter } from "lucide-react";
 import type { Course } from "@shared/schema";
 
 interface CourseWithStats extends Course {
@@ -17,9 +19,25 @@ interface CourseWithStats extends Course {
 }
 
 export default function Courses() {
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  
   const { data: courses, isLoading } = useQuery<CourseWithStats[]>({
     queryKey: ["/api/courses"],
   });
+
+  // Get unique departments
+  const departments = useMemo(() => {
+    if (!courses) return [];
+    const deptSet = new Set(courses.map(c => c.department).filter(Boolean));
+    return Array.from(deptSet).sort();
+  }, [courses]);
+
+  // Filter courses by department
+  const filteredCourses = useMemo(() => {
+    if (!courses) return [];
+    if (selectedDepartment === "all") return courses;
+    return courses.filter(c => c.department === selectedDepartment);
+  }, [courses, selectedDepartment]);
 
   if (isLoading) {
     return (
@@ -57,6 +75,32 @@ export default function Courses() {
         </p>
       </div>
 
+      {/* Filter Section */}
+      <div className="mb-6">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Filter by Major:</span>
+          </div>
+          <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+            <SelectTrigger className="w-[280px]" data-testid="select-department">
+              <SelectValue placeholder="All Majors" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Majors</SelectItem>
+              {departments.map((dept) => (
+                <SelectItem key={dept} value={dept!}>
+                  {dept}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground">
+            Showing {filteredCourses.length} of {courses?.length || 0} courses
+          </span>
+        </div>
+      </div>
+
       {courses?.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -69,7 +113,7 @@ export default function Courses() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {courses?.map((course) => {
+          {filteredCourses.map((course) => {
             const difficultyBadge = course.avgDifficulty ? getDifficultyBadge(course.avgDifficulty) : null;
             
             return (
