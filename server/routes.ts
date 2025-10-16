@@ -1,8 +1,12 @@
 // Reference: javascript_websocket blueprint integration
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import passport from "./auth";
+import bcrypt from "bcrypt";
 import { storage } from "./storage";
+import { z } from "zod";
+import type { User } from "@shared/schema";
 import {
   insertCollegeSchema,
   insertCourseSchema,
@@ -15,7 +19,93 @@ import {
   insertFileSchema,
 } from "@shared/schema";
 
+// Middleware to check if user is authenticated
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ error: "Unauthorized" });
+}
+
+const signupSchema = z.object({
+  username: z.string().min(3).max(50),
+  email: z.string()
+    .email()
+    .refine((email) => email.endsWith('.edu'), {
+      message: "You must use a valid college email address (.edu domain)",
+    }),
+  password: z.string().min(6),
+  fullName: z.string().min(1),
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication routes
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const data = signupSchema.parse(req.body);
+      
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+      const user = await storage.createUser({
+        username: data.username,
+        email: data.email,
+        password: hashedPassword,
+        fullName: data.fullName,
+      });
+
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ error: "Failed to login after signup" });
+        }
+        const { password, ...userWithoutPassword } = user;
+        res.status(201).json(userWithoutPassword);
+      });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(422).json({ error: "Validation failed", details: error.errors });
+      }
+      if (error.message?.includes("unique")) {
+        return res.status(409).json({ error: "Username or email already exists" });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: User | false, info: any) => {
+      if (err) {
+        return res.status(500).json({ error: "Internal server error" });
+      }
+      if (!user) {
+        return res.status(401).json({ error: info?.message || "Invalid credentials" });
+      }
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ error: "Failed to login" });
+        }
+        const { password, ...userWithoutPassword } = user;
+        res.json(userWithoutPassword);
+      });
+    })(req, res, next);
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated() && req.user) {
+      const { password, ...userWithoutPassword } = req.user as User;
+      res.json(userWithoutPassword);
+    } else {
+      res.status(401).json({ error: "Not authenticated" });
+    }
+  });
+
   // Colleges
   app.get("/api/colleges", async (req, res) => {
     try {
