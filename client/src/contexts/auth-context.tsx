@@ -11,6 +11,7 @@ interface User {
   fullName: string;
   avatar?: string | null;
   bio?: string | null;
+  isAdmin: boolean;
 }
 
 interface AuthContextType {
