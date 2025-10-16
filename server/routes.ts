@@ -2,7 +2,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
+import { firestoreStorage as storage } from "./firestore";
 import { z } from "zod";
 import type { User } from "@shared/schema";
 import { requireFirebaseAuth, type AuthRequest } from "./firebase-middleware";
@@ -64,8 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json(user);
     } catch (error: any) {
       console.error("Sync error:", error);
       res.status(400).json({ error: error.message || "Failed to sync user" });
@@ -84,8 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found in database" });
       }
 
-      const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json(user);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
