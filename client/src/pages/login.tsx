@@ -34,10 +34,8 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginForm) => {
-      return await apiRequest("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      const res = await apiRequest("POST", "/api/auth/login", data);
+      return await res.json();
     },
     onSuccess: () => {
       toast({
@@ -125,14 +123,14 @@ export default function Login() {
           </Form>
           <div className="mt-4 text-center text-sm">
             Don't have an account?{" "}
-            <Button
-              variant="link"
-              className="p-0 h-auto"
+            <button
+              type="button"
+              className="text-primary underline-offset-4 hover:underline"
               onClick={() => setLocation("/signup")}
               data-testid="link-signup"
             >
               Sign up
-            </Button>
+            </button>
           </div>
         </CardContent>
       </Card>

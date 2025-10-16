@@ -48,10 +48,8 @@ export default function Signup() {
   const signupMutation = useMutation({
     mutationFn: async (data: SignupForm) => {
       const { confirmPassword, ...signupData } = data;
-      return await apiRequest("/api/auth/signup", {
-        method: "POST",
-        body: JSON.stringify(signupData),
-      });
+      const res = await apiRequest("POST", "/api/auth/signup", signupData);
+      return await res.json();
     },
     onSuccess: () => {
       toast({
@@ -195,14 +193,14 @@ export default function Signup() {
           </Form>
           <div className="mt-4 text-center text-sm">
             Already have an account?{" "}
-            <Button
-              variant="link"
-              className="p-0 h-auto"
+            <button
+              type="button"
+              className="text-primary underline-offset-4 hover:underline"
               onClick={() => setLocation("/login")}
               data-testid="link-login"
             >
               Sign in
-            </Button>
+            </button>
           </div>
         </CardContent>
       </Card>
