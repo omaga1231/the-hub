@@ -114,8 +114,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/colleges", async (req, res) => {
+  app.post("/api/colleges", requireFirebaseAuth, async (req: AuthRequest, res) => {
     try {
+      // Check if user is admin
+      const user = await storage.getUserByFirebaseUid(req.user!.uid);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Only admins can create colleges" });
+      }
+
       const data = insertCollegeSchema.parse(req.body);
       const college = await storage.createCollege(data);
       res.status(201).json(college);
@@ -148,8 +154,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/courses", async (req, res) => {
+  app.post("/api/courses", requireFirebaseAuth, async (req: AuthRequest, res) => {
     try {
+      // Check if user is admin
+      const user = await storage.getUserByFirebaseUid(req.user!.uid);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Only admins can create courses" });
+      }
+
       const data = insertCourseSchema.parse(req.body);
       const course = await storage.createCourse(data);
       res.status(201).json(course);

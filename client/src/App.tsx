@@ -19,6 +19,7 @@ import MyCircles from "@/pages/my-circles";
 import Search from "@/pages/search";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
+import AdminPage from "@/pages/admin";
 
 function AuthenticatedLayout() {
   const style = {
@@ -45,6 +46,7 @@ function AuthenticatedLayout() {
               <Route path="/circles/:id" component={CircleDetail} />
               <Route path="/my-circles" component={MyCircles} />
               <Route path="/search" component={Search} />
+              <Route path="/admin" component={AdminPage} />
               <Route component={NotFound} />
             </Switch>
           </main>
