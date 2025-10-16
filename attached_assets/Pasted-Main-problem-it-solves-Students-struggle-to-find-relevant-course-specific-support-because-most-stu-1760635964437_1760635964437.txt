@@ -1,0 +1,57 @@
+Main problem it solves:
+Students struggle to find relevant, course-specific support because most study apps are either too general (like Discord) or too impersonal (like RateMyProf).
+
+So the Hub’s primary goal is:
+
+🧠 Facilitating academic collaboration, course-specific feedback, and study organization within and across colleges.
+
+Key user stories:
+
+“I want to join a study circle for my exact course and section.”
+
+“I want to rate this course’s difficulty and get advice from past students.”
+
+“I want to compare the same course at another college before transferring.”
+
+“I want to upload and share materials only with my group.”
+
+🤖 2. AI Functionality
+
+AI should act as a smart study and community assistant, not just a chatbot.
+
+Function	Description	Example
+Summarization	Condense discussions, notes, or study resources.	“Summarize the key exam topics discussed in CIS211 this week.”
+Feedback analysis	Process course ratings & comments to show trends.	“Average sentiment on CIS211 workload: 72% say ‘heavy.’”
+Recommendation engine	Suggest study circles, tutors, or related courses.	“You rated Data Structures high — join Algorithms study group.”
+Auto-moderation	Detect spam, plagiarism, or off-topic content.	AI removes duplicate posts or offensive messages.
+AI tutoring / Q&A	Answer concept questions using uploaded class materials.	“Explain the difference between stacks and queues.”
+
+Optional advanced AI layer: cross-campus comparison (“How does CIS211 at DTCC differ from CISC220 at UDel?”).
+
+💬 3. Communication Format
+
+You want a hybrid system: social + academic structure.
+
+Mode	Purpose	Example
+Commenting on posts/files	Inline discussion for notes, slides, or shared PDFs.	Comment: “Page 3 — AVL rotations seem unclear.”
+Chat/messaging	Real-time collaboration inside study circles.	Live group discussions before exams.
+Threaded discussion boards	Advice & course rating threads (like mini Reddit forums).	“Best way to survive CIS211 lab?”
+Structured forms/surveys	Collect quantitative ratings.	“Rate difficulty 1–5; rate professor’s clarity.”
+Optional video/presentation mode	For club-style study sessions or recorded lectures.	Host live review sessions via embedded video.
+🧩 4. Proposed Architecture & Stack
+Layer	Tech Choice	Notes
+Frontend	React + Tailwind + Socket.io (for chat)	Modern, responsive UI
+Backend	Node.js (Express) or Python (FastAPI)	REST + WebSocket APIs
+Database	PostgreSQL (with Prisma ORM)	Relational model: Colleges → Courses → StudyCircles → Posts
+AI Layer	OpenAI API (GPT-5) + LangChain or Autogen	Summarization, recommendations, moderation
+Storage	Firebase / AWS S3	File uploads and resources
+Auth	JWT + OAuth (edu email verification)	Campus-specific access control
+🚀 5. Next Step Options
+
+To move forward, I can:
+
+Draft a functional specification — a one-page blueprint listing modules, user flows, and data models.
+
+Propose a feature roadmap — MVP → Phase 2 → AI enhancement roadmap.
+
+Build a starter repo or architecture diagram — ready for AI-assisted coding or Replit deployment.
