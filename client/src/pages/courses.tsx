@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, Users, Star, GraduationCap } from "lucide-react";
+import { BookOpen, Users, Star, GraduationCap, Search } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { Course, Program } from "@shared/schema";
 
@@ -21,6 +22,7 @@ interface CourseWithStats extends Course {
 
 export default function Courses() {
   const [selectedProgram, setSelectedProgram] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   
   const { data: courses, isLoading: coursesLoading } = useQuery<CourseWithStats[]>({
     queryKey: ["/api/courses"],
@@ -35,16 +37,31 @@ export default function Courses() {
     enabled: selectedProgram !== "all",
   });
 
-  // Filter courses by program
+  // Filter courses by program and search query
   const filteredCourses = useMemo(() => {
     if (!courses) return [];
-    if (selectedProgram === "all") return courses;
-    if (!programCourses) return [];
     
-    // Get the course IDs from the program's required courses
-    const programCourseIds = new Set(programCourses.map(c => c.id));
-    return courses.filter(c => programCourseIds.has(c.id));
-  }, [courses, selectedProgram, programCourses]);
+    let result = courses;
+    
+    // Filter by program
+    if (selectedProgram !== "all" && programCourses) {
+      const programCourseIds = new Set(programCourses.map(c => c.id));
+      result = result.filter(c => programCourseIds.has(c.id));
+    }
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(course => 
+        course.code.toLowerCase().includes(query) ||
+        course.name.toLowerCase().includes(query) ||
+        course.department?.toLowerCase().includes(query) ||
+        course.description?.toLowerCase().includes(query)
+      );
+    }
+    
+    return result;
+  }, [courses, selectedProgram, programCourses, searchQuery]);
 
   const isLoading = coursesLoading || programsLoading;
 
@@ -84,8 +101,22 @@ export default function Courses() {
         </p>
       </div>
 
-      {/* Filter Section */}
-      <div className="mb-6">
+      {/* Search and Filter Section */}
+      <div className="mb-6 space-y-4">
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search courses by name, code, or department..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="input-search-courses"
+          />
+        </div>
+
+        {/* Program Filter */}
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <GraduationCap className="h-4 w-4 text-muted-foreground" />
@@ -105,9 +136,9 @@ export default function Courses() {
             </SelectContent>
           </Select>
           <span className="text-sm text-muted-foreground">
-            {selectedProgram === "all" 
+            {selectedProgram === "all" && !searchQuery.trim()
               ? `Showing all ${courses?.length || 0} courses`
-              : `Showing ${filteredCourses.length} required courses`
+              : `Showing ${filteredCourses.length} ${searchQuery.trim() ? 'matching' : 'required'} courses`
             }
           </span>
         </div>
