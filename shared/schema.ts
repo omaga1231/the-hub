@@ -36,6 +36,7 @@ export const colleges = pgTable("colleges", {
 
 export const collegesRelations = relations(colleges, ({ many }) => ({
   courses: many(courses),
+  programs: many(programs),
 }));
 
 // Courses
@@ -56,6 +57,46 @@ export const coursesRelations = relations(courses, ({ one, many }) => ({
   }),
   studyCircles: many(studyCircles),
   ratings: many(ratings),
+  programCourses: many(programCourses),
+}));
+
+// Programs/Majors
+export const programs = pgTable("programs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collegeId: varchar("college_id").notNull().references(() => colleges.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  degree: text("degree").notNull(), // e.g., "A.A.S.", "B.S.N.", "Certificate"
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const programsRelations = relations(programs, ({ one, many }) => ({
+  college: one(colleges, {
+    fields: [programs.collegeId],
+    references: [colleges.id],
+  }),
+  programCourses: many(programCourses),
+}));
+
+// Program Courses (junction table)
+export const programCourses = pgTable("program_courses", {
+  programId: varchar("program_id").notNull().references(() => programs.id, { onDelete: 'cascade' }),
+  courseId: varchar("course_id").notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  isRequired: boolean("is_required").default(true).notNull(),
+  semester: integer("semester"), // suggested semester (1, 2, 3, 4, etc.)
+}, (table) => ({
+  pk: primaryKey({ columns: [table.programId, table.courseId] }),
+}));
+
+export const programCoursesRelations = relations(programCourses, ({ one }) => ({
+  program: one(programs, {
+    fields: [programCourses.programId],
+    references: [programs.id],
+  }),
+  course: one(courses, {
+    fields: [programCourses.courseId],
+    references: [courses.id],
+  }),
 }));
 
 // Study Circles
@@ -269,6 +310,13 @@ export const insertFileSchema = createInsertSchema(files).omit({
   createdAt: true,
 });
 
+export const insertProgramSchema = createInsertSchema(programs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProgramCourseSchema = createInsertSchema(programCourses);
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -299,3 +347,9 @@ export type Message = typeof messages.$inferSelect;
 
 export type InsertFile = z.infer<typeof insertFileSchema>;
 export type File = typeof files.$inferSelect;
+
+export type InsertProgram = z.infer<typeof insertProgramSchema>;
+export type Program = typeof programs.$inferSelect;
+
+export type InsertProgramCourse = z.infer<typeof insertProgramCourseSchema>;
+export type ProgramCourse = typeof programCourses.$inferSelect;
