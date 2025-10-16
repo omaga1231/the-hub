@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, Users, Star, Filter } from "lucide-react";
-import type { Course } from "@shared/schema";
+import { BookOpen, Users, Star, GraduationCap } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import type { Course, Program } from "@shared/schema";
 
 interface CourseWithStats extends Course {
   _count?: {
@@ -19,25 +20,39 @@ interface CourseWithStats extends Course {
 }
 
 export default function Courses() {
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const [selectedProgram, setSelectedProgram] = useState<string>("all");
   
-  const { data: courses, isLoading } = useQuery<CourseWithStats[]>({
+  const { data: courses, isLoading: coursesLoading } = useQuery<CourseWithStats[]>({
     queryKey: ["/api/courses"],
   });
 
-  // Get unique departments
-  const departments = useMemo(() => {
-    if (!courses) return [];
-    const deptSet = new Set(courses.map(c => c.department).filter(Boolean));
-    return Array.from(deptSet).sort();
-  }, [courses]);
+  const { data: programs, isLoading: programsLoading } = useQuery<Program[]>({
+    queryKey: ["/api/programs"],
+  });
 
-  // Filter courses by department
+  const { data: programCourses, isLoading: programCoursesLoading } = useQuery<Course[]>({
+    queryKey: ["/api/programs", selectedProgram, "courses"],
+    queryFn: async () => {
+      const response = await apiRequest<Course[]>({
+        url: `/api/programs/${selectedProgram}/courses`,
+      });
+      return response;
+    },
+    enabled: selectedProgram !== "all",
+  });
+
+  // Filter courses by program
   const filteredCourses = useMemo(() => {
     if (!courses) return [];
-    if (selectedDepartment === "all") return courses;
-    return courses.filter(c => c.department === selectedDepartment);
-  }, [courses, selectedDepartment]);
+    if (selectedProgram === "all") return courses;
+    if (!programCourses) return [];
+    
+    // Get the course IDs from the program's required courses
+    const programCourseIds = new Set(programCourses.map(c => c.id));
+    return courses.filter(c => programCourseIds.has(c.id));
+  }, [courses, selectedProgram, programCourses]);
+
+  const isLoading = coursesLoading || programsLoading;
 
   if (isLoading) {
     return (
@@ -79,35 +94,59 @@ export default function Courses() {
       <div className="mb-6">
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Filter by Major:</span>
+            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Filter by Program/Major:</span>
           </div>
-          <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-            <SelectTrigger className="w-[280px]" data-testid="select-department">
-              <SelectValue placeholder="All Majors" />
+          <Select value={selectedProgram} onValueChange={setSelectedProgram}>
+            <SelectTrigger className="w-[350px]" data-testid="select-program">
+              <SelectValue placeholder="All Programs" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Majors</SelectItem>
-              {departments.map((dept) => (
-                <SelectItem key={dept} value={dept!}>
-                  {dept}
+              <SelectItem value="all">All Programs - Show All Courses</SelectItem>
+              {programs?.map((program) => (
+                <SelectItem key={program.id} value={program.id}>
+                  {program.name} ({program.degree})
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <span className="text-sm text-muted-foreground">
-            Showing {filteredCourses.length} of {courses?.length || 0} courses
+            {selectedProgram === "all" 
+              ? `Showing all ${courses?.length || 0} courses`
+              : `Showing ${filteredCourses.length} required courses`
+            }
           </span>
         </div>
       </div>
 
-      {courses?.length === 0 ? (
+      {programCoursesLoading && selectedProgram !== "all" ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-32 mb-2" />
+                <Skeleton className="h-4 w-full" />
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      ) : courses?.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No Courses Yet</h3>
             <p className="text-muted-foreground">
               Courses will appear here once they're added to the platform
+            </p>
+          </CardContent>
+        </Card>
+      ) : filteredCourses.length === 0 && selectedProgram !== "all" ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Required Courses Found</h3>
+            <p className="text-muted-foreground">
+              This program has no required courses listed
             </p>
           </CardContent>
         </Card>
