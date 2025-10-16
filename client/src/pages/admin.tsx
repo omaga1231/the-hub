@@ -12,10 +12,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, BookOpen } from "lucide-react";
+import { Building2, BookOpen, ShieldAlert } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function AdminPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  if (!user?.isAdmin) {
+    return (
+      <div className="container mx-auto p-6 max-w-4xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <ShieldAlert className="w-6 h-6" />
+              Access Denied
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              You do not have permission to access this page. Admin privileges are required.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   const [activeTab, setActiveTab] = useState("colleges");
 
   const { data: colleges = [] } = useQuery<College[]>({
@@ -44,10 +66,7 @@ export default function AdminPage() {
 
   const createCollegeMutation = useMutation({
     mutationFn: async (data: InsertCollege) => {
-      return await apiRequest("/api/colleges", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/colleges", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/colleges"] });
@@ -68,10 +87,7 @@ export default function AdminPage() {
 
   const createCourseMutation = useMutation({
     mutationFn: async (data: InsertCourse) => {
-      return await apiRequest("/api/courses", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/courses", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
@@ -281,6 +297,7 @@ export default function AdminPage() {
                             placeholder="e.g., Computer Science"
                             data-testid="input-course-department"
                             {...field}
+                            value={field.value || ""}
                           />
                         </FormControl>
                         <FormMessage />
