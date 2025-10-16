@@ -31,13 +31,7 @@ export default function Courses() {
   });
 
   const { data: programCourses, isLoading: programCoursesLoading } = useQuery<Course[]>({
-    queryKey: ["/api/programs", selectedProgram, "courses"],
-    queryFn: async () => {
-      const response = await apiRequest<Course[]>({
-        url: `/api/programs/${selectedProgram}/courses`,
-      });
-      return response;
-    },
+    queryKey: [`/api/programs/${selectedProgram}/courses`],
     enabled: selectedProgram !== "all",
   });
 
