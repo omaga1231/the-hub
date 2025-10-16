@@ -170,6 +170,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Programs
+  app.get("/api/programs", async (req, res) => {
+    try {
+      const programs = await storage.getPrograms();
+      res.json(programs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/programs/:id", async (req, res) => {
+    try {
+      const program = await storage.getProgram(req.params.id);
+      if (!program) {
+        return res.status(404).json({ error: "Program not found" });
+      }
+      res.json(program);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/programs/:id/courses", async (req, res) => {
+    try {
+      const courses = await storage.getProgramCourses(req.params.id);
+      res.json(courses);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Study Circles
   app.get("/api/circles/:id", async (req, res) => {
     try {

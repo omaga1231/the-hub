@@ -2,7 +2,7 @@
 import { eq, ilike, or, desc } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, colleges, courses, studyCircles, circleMembers, posts, comments, ratings, messages, files,
+  users, colleges, courses, studyCircles, circleMembers, posts, comments, ratings, messages, files, programs, programCourses,
   type User, type InsertUser,
   type College, type InsertCollege,
   type Course, type InsertCourse,
@@ -13,6 +13,7 @@ import {
   type Rating, type InsertRating,
   type Message, type InsertMessage,
   type File, type InsertFile,
+  type Program, type InsertProgram,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -68,6 +69,12 @@ export interface IStorage {
   // Files
   getFiles(circleId: string): Promise<File[]>;
   createFile(file: InsertFile): Promise<File>;
+
+  // Programs
+  getPrograms(): Promise<Program[]>;
+  getProgram(id: string): Promise<Program | undefined>;
+  getProgramsByCollege(collegeId: string): Promise<Program[]>;
+  getProgramCourses(programId: string): Promise<Course[]>;
 
   // Search
   search(query: string): Promise<{
@@ -280,6 +287,38 @@ export class DatabaseStorage implements IStorage {
       .values(insertFile)
       .returning();
     return file;
+  }
+
+  // Programs
+  async getPrograms(): Promise<Program[]> {
+    return await db.select().from(programs).orderBy(programs.name);
+  }
+
+  async getProgram(id: string): Promise<Program | undefined> {
+    const [program] = await db.select().from(programs).where(eq(programs.id, id));
+    return program || undefined;
+  }
+
+  async getProgramsByCollege(collegeId: string): Promise<Program[]> {
+    return await db.select().from(programs).where(eq(programs.collegeId, collegeId)).orderBy(programs.name);
+  }
+
+  async getProgramCourses(programId: string): Promise<Course[]> {
+    const result = await db
+      .select({
+        id: courses.id,
+        collegeId: courses.collegeId,
+        code: courses.code,
+        name: courses.name,
+        description: courses.description,
+        department: courses.department,
+        createdAt: courses.createdAt,
+      })
+      .from(programCourses)
+      .innerJoin(courses, eq(programCourses.courseId, courses.id))
+      .where(eq(programCourses.programId, programId));
+    
+    return result;
   }
 
   // Search
