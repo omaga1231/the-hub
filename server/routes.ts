@@ -2,11 +2,10 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import passport from "./auth";
-import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { z } from "zod";
 import type { User } from "@shared/schema";
+import { requireFirebaseAuth, type AuthRequest } from "./firebase-middleware";
 import {
   insertCollegeSchema,
   insertCourseSchema,
@@ -19,96 +18,76 @@ import {
   insertFileSchema,
 } from "@shared/schema";
 
-// Middleware to check if user is authenticated
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  res.status(401).json({ error: "Unauthorized" });
-}
-
-const signupSchema = z.object({
+const syncUserSchema = z.object({
+  firebaseUid: z.string(),
   username: z.string().min(3).max(50),
-  email: z.string()
-    .email()
-    .refine((email) => email.endsWith('.edu'), {
-      message: "You must use a valid college email address (.edu domain)",
-    }),
-  password: z.string().min(6),
+  email: z.string().email(),
   fullName: z.string().min(1),
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Authentication routes
-  app.post("/api/auth/signup", async (req, res) => {
+  // Firebase user sync endpoint - idempotent
+  app.post("/api/auth/sync", requireFirebaseAuth, async (req: AuthRequest, res) => {
     try {
-      const data = signupSchema.parse(req.body);
-      
-      const hashedPassword = await bcrypt.hash(data.password, 10);
-      const user = await storage.createUser({
-        username: data.username,
-        email: data.email,
-        password: hashedPassword,
-        fullName: data.fullName,
+      const data = syncUserSchema.parse({
+        firebaseUid: req.user?.uid,
+        username: req.body.username,
+        email: req.user?.email,
+        fullName: req.body.fullName,
       });
 
-      req.login(user, (err) => {
-        if (err) {
-          return res.status(500).json({ error: "Failed to login after signup" });
+      // Check if user already exists by Firebase UID
+      let user = await storage.getUserByFirebaseUid(data.firebaseUid);
+
+      if (!user) {
+        // Try to create new user
+        try {
+          user = await storage.createUser({
+            firebaseUid: data.firebaseUid,
+            username: data.username,
+            email: data.email,
+            fullName: data.fullName,
+          });
+        } catch (createError: any) {
+          // If username collision, try with a numbered suffix
+          if (createError.message?.includes("unique") && createError.message?.includes("username")) {
+            const uniqueUsername = `${data.username}_${Date.now().toString().slice(-4)}`;
+            user = await storage.createUser({
+              firebaseUid: data.firebaseUid,
+              username: uniqueUsername,
+              email: data.email,
+              fullName: data.fullName,
+            });
+          } else {
+            throw createError;
+          }
         }
-        const { password, ...userWithoutPassword } = user;
-        res.status(201).json(userWithoutPassword);
-      });
+      }
+
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(422).json({ error: "Validation failed", details: error.errors });
-      }
-      if (error.message?.includes("unique")) {
-        return res.status(409).json({ error: "Username or email already exists" });
-      }
-      res.status(400).json({ error: error.message });
+      console.error("Sync error:", error);
+      res.status(400).json({ error: error.message || "Failed to sync user" });
     }
   });
 
-  app.post("/api/auth/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: User | false, info: any) => {
-      if (err) {
-        return res.status(500).json({ error: "Internal server error" });
+  app.get("/api/auth/me", requireFirebaseAuth, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.uid) {
+        return res.status(401).json({ error: "Not authenticated" });
       }
+
+      const user = await storage.getUserByFirebaseUid(req.user.uid);
+
       if (!user) {
-        return res.status(401).json({ error: info?.message || "Invalid credentials" });
+        return res.status(404).json({ error: "User not found in database" });
       }
-      req.login(user, (err) => {
-        if (err) {
-          return res.status(500).json({ error: "Failed to login" });
-        }
-        const { password, ...userWithoutPassword } = user;
-        res.json(userWithoutPassword);
-      });
-    })(req, res, next);
-  });
 
-  app.post("/api/auth/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ error: "Failed to logout" });
-      }
-      req.session.destroy((err) => {
-        if (err) {
-          return res.status(500).json({ error: "Failed to destroy session" });
-        }
-        res.clearCookie("connect.sid");
-        res.json({ message: "Logged out successfully" });
-      });
-    });
-  });
-
-  app.get("/api/auth/me", (req, res) => {
-    if (req.isAuthenticated() && req.user) {
-      const { password, ...userWithoutPassword } = req.user as User;
+      const { password, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
-    } else {
-      res.status(401).json({ error: "Not authenticated" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 
@@ -203,9 +182,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/my-circles", requireAuth, async (req, res) => {
+  app.get("/api/my-circles", requireFirebaseAuth, async (req: AuthRequest, res) => {
     try {
-      const user = req.user as User;
+      if (!req.user?.uid) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUserByFirebaseUid(req.user.uid);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
       const circles = await storage.getStudyCirclesByUser(user.id);
       res.json(circles);
     } catch (error: any) {

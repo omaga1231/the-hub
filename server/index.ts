@@ -3,6 +3,10 @@ import session from "express-session";
 import passport from "./auth";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { initializeFirebaseAdmin } from "./firebase-admin";
+
+// Initialize Firebase Admin SDK
+initializeFirebaseAdmin();
 
 const app = express();
 app.use(express.json());

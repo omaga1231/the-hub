@@ -6,9 +6,10 @@ import { z } from "zod";
 // Users
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  firebaseUid: text("firebase_uid").unique(),
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
-  password: text("password").notNull(),
+  password: text("password"),
   fullName: text("full_name").notNull(),
   avatar: text("avatar"),
   bio: text("bio"),
@@ -218,6 +219,8 @@ export const filesRelations = relations(files, ({ one }) => ({
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+}).extend({
+  password: z.string().optional(),
 });
 
 export const insertCollegeSchema = createInsertSchema(colleges).omit({

@@ -71,7 +71,8 @@ export default function Signup() {
         description: "Please check your email to verify your account before signing in.",
       });
 
-      // Redirect to login
+      // Sign out and redirect to login
+      await auth.signOut();
       setLocation("/login");
     } catch (error: any) {
       console.error("Signup error:", error);
