@@ -48,7 +48,7 @@ Preferred communication style: Simple, everyday language.
 - **Firebase Authentication** for email/password authentication with email verification
 - **Firebase Admin SDK** for backend token verification and custom domain email sending
 - Email validation requiring `.edu` domains for college verification
-- Hybrid approach: Firebase handles authentication, PostgreSQL stores user profiles with Firebase UIDs as foreign keys
+- Hybrid approach: Firebase handles authentication, Firestore stores user profiles with Firebase UIDs
 
 **API Design:**
 - RESTful endpoints under `/api/*` namespace
@@ -63,13 +63,19 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Architecture
 
-**Database: PostgreSQL** (via Neon serverless)
+**Database: Firebase Firestore**
+
+**Migration from PostgreSQL to Firestore (October 2025):**
+- Migrated from PostgreSQL to Firestore to solve production deployment issues
+- Firestore provides unified database for both development and production environments
+- Import script (`scripts/import-to-firestore.ts`) handles ID mapping from PostgreSQL to Firestore
+- All 474 courses, 50 programs, and 878 program-course relationships successfully migrated
 
 **Schema Design Philosophy:**
-- UUID primary keys for all entities
-- Cascading deletes for referential integrity
+- Firestore auto-generated document IDs for all entities
 - Timestamp tracking (createdAt) on all entities
-- Relational model: Colleges → Courses → Study Circles → Posts/Messages
+- Document-based model with references: Colleges → Courses → Study Circles → Posts/Messages
+- In-memory sorting used instead of composite indexes to avoid Firestore index requirements
 
 **Core Entities:**
 

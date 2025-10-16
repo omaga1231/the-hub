@@ -325,12 +325,14 @@ export const firestoreStorage = {
     const db = getFirestoreDb();
     const snapshot = await db.collection("posts")
       .where("circleId", "==", circleId)
-      .orderBy("createdAt", "desc")
       .get();
     
-    return snapshot.docs.map(doc => 
+    const posts = snapshot.docs.map(doc => 
       convertTimestamps<Post>({ id: doc.id, ...doc.data() })
     );
+    
+    // Sort in memory instead of requiring a Firestore index
+    return posts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   },
 
   async createPost(data: InsertPost): Promise<Post> {
@@ -361,12 +363,14 @@ export const firestoreStorage = {
     const db = getFirestoreDb();
     const snapshot = await db.collection("comments")
       .where("postId", "==", postId)
-      .orderBy("createdAt", "asc")
       .get();
     
-    return snapshot.docs.map(doc => 
+    const comments = snapshot.docs.map(doc => 
       convertTimestamps<Comment>({ id: doc.id, ...doc.data() })
     );
+    
+    // Sort in memory instead of requiring a Firestore index
+    return comments.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   },
 
   async createComment(data: InsertComment): Promise<Comment> {
@@ -384,12 +388,14 @@ export const firestoreStorage = {
     const db = getFirestoreDb();
     const snapshot = await db.collection("ratings")
       .where("courseId", "==", courseId)
-      .orderBy("createdAt", "desc")
       .get();
     
-    return snapshot.docs.map(doc => 
+    const ratings = snapshot.docs.map(doc => 
       convertTimestamps<Rating>({ id: doc.id, ...doc.data() })
     );
+    
+    // Sort in memory instead of requiring a Firestore index
+    return ratings.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   },
 
   async createRating(data: InsertRating): Promise<Rating> {
@@ -407,12 +413,14 @@ export const firestoreStorage = {
     const db = getFirestoreDb();
     const snapshot = await db.collection("messages")
       .where("circleId", "==", circleId)
-      .orderBy("createdAt", "asc")
       .get();
     
-    return snapshot.docs.map(doc => 
+    const messages = snapshot.docs.map(doc => 
       convertTimestamps<Message>({ id: doc.id, ...doc.data() })
     );
+    
+    // Sort in memory instead of requiring a Firestore index
+    return messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   },
 
   async createMessage(data: InsertMessage): Promise<Message> {
@@ -430,12 +438,14 @@ export const firestoreStorage = {
     const db = getFirestoreDb();
     const snapshot = await db.collection("files")
       .where("circleId", "==", circleId)
-      .orderBy("createdAt", "desc")
       .get();
     
-    return snapshot.docs.map(doc => 
+    const files = snapshot.docs.map(doc => 
       convertTimestamps<File>({ id: doc.id, ...doc.data() })
     );
+    
+    // Sort in memory instead of requiring a Firestore index
+    return files.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   },
 
   async createFile(data: InsertFile): Promise<File> {
