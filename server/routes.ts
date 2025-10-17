@@ -265,7 +265,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const circles = await storage.getStudyCirclesByUser(user.id);
-      res.json(circles);
+      
+      // Enrich circles with course data and member/post counts
+      const enrichedCircles = await Promise.all(
+        circles.map(async (circle) => {
+          const course = await storage.getCourse(circle.courseId);
+          const members = await storage.getCircleMembers(circle.id);
+          const posts = await storage.getCirclePosts(circle.id);
+          
+          return {
+            ...circle,
+            course: course ? {
+              code: course.code,
+              name: course.name,
+            } : null,
+            _count: {
+              members: members.length,
+              posts: posts.length,
+            },
+          };
+        })
+      );
+      
+      // Sort by member count (most members first)
+      enrichedCircles.sort((a, b) => b._count.members - a._count.members);
+      
+      res.json(enrichedCircles);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
