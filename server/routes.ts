@@ -27,7 +27,7 @@ const syncUserSchema = z.object({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Firebase user sync endpoint - idempotent
-  app.post("/api/auth/sync", requireFirebaseAuth, async (req: AuthRequest, res) => {
+  app.post("/api/auth/sync", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
     try {
       const data = syncUserSchema.parse({
         firebaseUid: req.user?.uid,
@@ -71,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/auth/me", requireFirebaseAuth, async (req: AuthRequest, res) => {
+  app.get("/api/auth/me", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
     try {
       if (!req.user?.uid) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -112,7 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/colleges", requireFirebaseAuth, async (req: AuthRequest, res) => {
+  app.post("/api/colleges", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
     try {
       // Check if user is admin
       const user = await storage.getUserByFirebaseUid(req.user!.uid);
@@ -152,7 +152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/courses", requireFirebaseAuth, async (req: AuthRequest, res) => {
+  app.post("/api/courses", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
     try {
       // Check if user is admin
       const user = await storage.getUserByFirebaseUid(req.user!.uid);
@@ -223,7 +223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/my-circles", requireFirebaseAuth, async (req: AuthRequest, res) => {
+  app.get("/api/my-circles", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
     try {
       if (!req.user?.uid) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -352,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/ratings/:id", requireFirebaseAuth, async (req: AuthRequest, res) => {
+  app.delete("/api/ratings/:id", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
       
