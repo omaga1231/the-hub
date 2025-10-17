@@ -259,7 +259,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/circles/:id/posts", async (req, res) => {
     try {
       const posts = await storage.getPosts(req.params.id);
-      res.json(posts);
+      
+      // Fetch user data for each post
+      const postsWithUsers = await Promise.all(
+        posts.map(async (post) => {
+          const user = await storage.getUser(post.userId);
+          return {
+            ...post,
+            user: user ? {
+              username: user.username,
+              fullName: user.fullName,
+            } : {
+              username: "Unknown",
+              fullName: "Unknown User",
+            },
+          };
+        })
+      );
+      
+      res.json(postsWithUsers);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
