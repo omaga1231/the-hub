@@ -1,15 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
-import { useParams, Link } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useParams, Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, MessageSquare, FileText, Plus, ArrowLeft } from "lucide-react";
+import { Users, MessageSquare, FileText, Plus, ArrowLeft, Trash2, UserMinus } from "lucide-react";
 import { DiscussionBoard } from "@/components/discussion-board";
 import { ChatRoom } from "@/components/chat-room";
 import { FileList } from "@/components/file-list";
-import type { StudyCircle } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { StudyCircle, User, CircleMember } from "@shared/schema";
 
 interface CircleWithDetails extends StudyCircle {
   course: {
@@ -23,11 +25,86 @@ interface CircleWithDetails extends StudyCircle {
   };
 }
 
+interface MemberWithUser extends CircleMember {
+  user: {
+    id: string;
+    username: string;
+    fullName: string;
+    avatar: string | null;
+  } | null;
+}
+
 export default function CircleDetail() {
   const { id } = useParams<{ id: string }>();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
 
+  const { data: user } = useQuery<User>({ queryKey: ["/api/auth/me"] });
+  
   const { data: circle, isLoading } = useQuery<CircleWithDetails>({
     queryKey: ["/api/circles", id],
+  });
+
+  const { data: members, isLoading: isLoadingMembers } = useQuery<MemberWithUser[]>({
+    queryKey: ["/api/circles", id, "members"],
+    enabled: !!id,
+  });
+
+  const currentUserMember = members?.find(m => m.userId === user?.id);
+  const isAdmin = currentUserMember?.role === "admin";
+  const isMember = !!currentUserMember;
+  const canJoin = !isLoadingMembers && !isMember && !circle?.isPrivate;
+
+  const joinMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/circles/${id}/join`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/circles", id, "members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-circles"] });
+      toast({ title: "Joined circle successfully!" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to join circle",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("DELETE", `/api/circles/${id}`, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Circle deleted successfully!" });
+      navigate("/my-circles");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete circle",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return apiRequest("DELETE", `/api/circles/${id}/members/${userId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/circles", id, "members"] });
+      toast({ title: "Member removed successfully!" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to remove member",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading) {
@@ -123,33 +200,80 @@ export default function CircleDetail() {
           </Tabs>
         </div>
 
-        <div>
+        <div className="space-y-4">
+          {canJoin && (
+            <Card>
+              <CardContent className="pt-6">
+                <Button 
+                  className="w-full" 
+                  onClick={() => joinMutation.mutate()}
+                  disabled={joinMutation.isPending}
+                  data-testid="button-join-circle"
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  {joinMutation.isPending ? "Joining..." : "Join Circle"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          
           <Card>
             <CardHeader>
-              <CardTitle>Circle Info</CardTitle>
+              <CardTitle>Members ({members?.length || 0})</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Members</span>
-                <span className="font-semibold">{circle._count?.members || 0}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Discussions</span>
-                <span className="font-semibold">{circle._count?.posts || 0}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Messages</span>
-                <span className="font-semibold">{circle._count?.messages || 0}</span>
-              </div>
-
-              <div className="border-t pt-4">
-                <Button className="w-full" variant="outline" data-testid="button-invite-members">
-                  <Users className="mr-2 h-4 w-4" />
-                  Invite Members
-                </Button>
-              </div>
+            <CardContent className="space-y-3">
+              {members?.map((member) => (
+                <div key={member.userId} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm">
+                      <div className="font-medium">{member.user?.fullName || "Unknown"}</div>
+                      <div className="text-muted-foreground">@{member.user?.username || "unknown"}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {member.role === "admin" && (
+                      <Badge variant="secondary" data-testid={`badge-admin-${member.userId}`}>Admin</Badge>
+                    )}
+                    {isAdmin && member.userId !== user?.id && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeMemberMutation.mutate(member.userId)}
+                        disabled={removeMemberMutation.isPending}
+                        data-testid={`button-remove-${member.userId}`}
+                      >
+                        <UserMinus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
+
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Admin Controls</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button 
+                  className="w-full" 
+                  variant="destructive"
+                  onClick={() => {
+                    if (confirm("Are you sure you want to delete this circle? This action cannot be undone.")) {
+                      deleteMutation.mutate();
+                    }
+                  }}
+                  disabled={deleteMutation.isPending}
+                  data-testid="button-delete-circle"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {deleteMutation.isPending ? "Deleting..." : "Delete Circle"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
