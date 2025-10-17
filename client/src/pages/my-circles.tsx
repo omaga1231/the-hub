@@ -60,8 +60,8 @@ export default function MyCircles() {
             <p className="text-muted-foreground mb-4">
               Join or create a study circle to start collaborating with other students
             </p>
-            <Link href="/courses">
-              <a className="text-primary hover:underline">Browse Courses</a>
+            <Link href="/courses" className="text-primary hover:underline">
+              Browse Courses
             </Link>
           </CardContent>
         </Card>
