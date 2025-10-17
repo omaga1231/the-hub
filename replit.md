@@ -5,7 +5,8 @@
 The Hub is an academic collaboration platform designed to solve a critical problem for college students: finding relevant, course-specific support and study communities. Unlike generic platforms (Discord) or impersonal review sites (RateMyProfessor), The Hub facilitates targeted academic collaboration through course-specific study circles, shared materials, and peer ratings across multiple colleges.
 
 The platform enables students to:
-- Join study circles for specific courses and sections
+- Create and join study circles for specific courses and sections (public or private)
+- Manage study circles with role-based admin controls
 - Rate courses on difficulty, quality, and workload
 - Share and collaborate on study materials within groups
 - Compare courses across different colleges (useful for transfer students)
@@ -139,6 +140,33 @@ Preferred communication style: Simple, everyday language.
 - `NODE_ENV` for environment detection
 - `DATABASE_URL` required for Neon PostgreSQL connection
 - `SESSION_SECRET` for session encryption (defaults provided for development)
+
+## Recent Changes
+
+### Study Circle Membership System (October 2025)
+Implemented comprehensive membership management features:
+
+**Backend Features:**
+- **Auto-Admin Assignment**: Circle creators automatically added as admin members during creation
+- **Join Circle Endpoint**: POST `/api/circles/:id/join` allows users to join public circles
+- **Admin Controls**:
+  - POST `/api/circles/:id/members` - Admin can add members to any circle
+  - DELETE `/api/circles/:circleId/members/:userId` - Admin can remove members
+  - DELETE `/api/circles/:id` - Admin can delete entire circle
+- **Cascade Delete**: Deleting a circle removes all associated data (members, posts, comments, messages, files) in a batch operation
+- **Privacy Enforcement**: Private circles hidden from non-members, join endpoint blocked for private circles
+
+**Frontend Features:**
+- **Join Button**: Non-members see "Join Circle" button on public circles (hidden for private circles)
+- **Members List**: Displays all circle members with role badges (Admin/Member)
+- **Admin Controls Card**: Admins see delete circle button and remove member options
+- **My Circles**: Shows all circles where user is a member (not just created circles)
+- **Race Condition Fix**: Join button properly waits for members query to resolve before rendering
+
+**Testing:**
+- Comprehensive QA test suite validates all cross-account functionality
+- Test accounts: oabukar@dtcc.edu (123456789) and testdev@college.edu (TestPass123!)
+- All features verified working: creation, joining, admin controls, privacy, cascade delete
 
 ## External Dependencies
 
