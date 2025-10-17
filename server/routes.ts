@@ -213,11 +213,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/circles", async (req, res) => {
+  app.post("/api/circles", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
     try {
+      if (!req.user?.uid) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUserByFirebaseUid(req.user.uid);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
       const data = insertStudyCircleSchema.parse(req.body);
-      const circle = await storage.createStudyCircle(data);
-      res.status(201).json(circle);
+      
+      try {
+        const circle = await storage.createStudyCircle(data);
+        
+        // Automatically add creator as admin member
+        await storage.addCircleMember({
+          circleId: circle.id,
+          userId: user.id,
+          role: "admin",
+        });
+        
+        res.status(201).json(circle);
+      } catch (memberError: any) {
+        // If adding member fails, rollback by deleting the circle
+        try {
+          if (memberError.circle?.id) {
+            await storage.deleteStudyCircle(memberError.circle.id);
+          }
+        } catch (rollbackError) {
+          console.error("Failed to rollback circle creation:", rollbackError);
+        }
+        throw memberError;
+      }
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -241,17 +271,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Circle Members
-  app.post("/api/circles/:id/members", async (req, res) => {
+  // Join a public circle
+  app.post("/api/circles/:id/join", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
     try {
+      if (!req.user?.uid) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUserByFirebaseUid(req.user.uid);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const circle = await storage.getStudyCircle(req.params.id);
+      if (!circle) {
+        return res.status(404).json({ error: "Study circle not found" });
+      }
+
+      if (circle.isPrivate) {
+        return res.status(403).json({ error: "Cannot join private circles" });
+      }
+
+      // Check if already a member
+      const existingMember = await storage.getCircleMember(circle.id, user.id);
+      if (existingMember) {
+        return res.status(400).json({ error: "Already a member" });
+      }
+
+      const member = await storage.addCircleMember({
+        circleId: circle.id,
+        userId: user.id,
+        role: "member",
+      });
+
+      res.status(201).json(member);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Circle Members
+  app.post("/api/circles/:id/members", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.uid) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUserByFirebaseUid(req.user.uid);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const circle = await storage.getStudyCircle(req.params.id);
+      if (!circle) {
+        return res.status(404).json({ error: "Study circle not found" });
+      }
+
+      // Check if user is admin
+      const membership = await storage.getCircleMember(circle.id, user.id);
+      if (!membership || membership.role !== "admin") {
+        return res.status(403).json({ error: "Only admins can add members" });
+      }
+
       const data = insertCircleMemberSchema.parse({
         circleId: req.params.id,
         userId: req.body.userId,
+        role: req.body.role || "member",
       });
       const member = await storage.addCircleMember(data);
       res.status(201).json(member);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Remove member from circle (admin only)
+  app.delete("/api/circles/:circleId/members/:userId", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.uid) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUserByFirebaseUid(req.user.uid);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Check if requester is admin
+      const membership = await storage.getCircleMember(req.params.circleId, user.id);
+      if (!membership || membership.role !== "admin") {
+        return res.status(403).json({ error: "Only admins can remove members" });
+      }
+
+      await storage.removeCircleMember(req.params.circleId, req.params.userId);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get circle members
+  app.get("/api/circles/:id/members", async (req, res) => {
+    try {
+      const members = await storage.getCircleMembers(req.params.id);
+      
+      // Fetch user data for each member
+      const membersWithUsers = await Promise.all(
+        members.map(async (member) => {
+          const user = await storage.getUser(member.userId);
+          return {
+            ...member,
+            user: user ? {
+              id: user.id,
+              username: user.username,
+              fullName: user.fullName,
+              avatar: user.avatar,
+            } : null,
+          };
+        })
+      );
+      
+      res.json(membersWithUsers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete circle (admin only)
+  app.delete("/api/circles/:id", requireFirebaseAuth as any, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.uid) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUserByFirebaseUid(req.user.uid);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const circle = await storage.getStudyCircle(req.params.id);
+      if (!circle) {
+        return res.status(404).json({ error: "Study circle not found" });
+      }
+
+      // Check if user is admin
+      const membership = await storage.getCircleMember(circle.id, user.id);
+      if (!membership || membership.role !== "admin") {
+        return res.status(403).json({ error: "Only admins can delete circles" });
+      }
+
+      await storage.deleteStudyCircle(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

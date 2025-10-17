@@ -480,6 +480,41 @@ export const firestoreStorage = {
     await db.collection("ratings").doc(id).delete();
   },
 
+  async deleteStudyCircle(id: string): Promise<void> {
+    const db = getFirestoreDb();
+    
+    // Delete all related data
+    const batch = db.batch();
+    
+    // Delete circle members
+    const membersSnapshot = await db.collection("circle_members").where("circleId", "==", id).get();
+    membersSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+    
+    // Delete posts and their comments
+    const postsSnapshot = await db.collection("posts").where("circleId", "==", id).get();
+    for (const postDoc of postsSnapshot.docs) {
+      batch.delete(postDoc.ref);
+      
+      // Delete comments for this post
+      const commentsSnapshot = await db.collection("comments").where("postId", "==", postDoc.id).get();
+      commentsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+    }
+    
+    // Delete messages
+    const messagesSnapshot = await db.collection("messages").where("circleId", "==", id).get();
+    messagesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+    
+    // Delete files
+    const filesSnapshot = await db.collection("files").where("circleId", "==", id).get();
+    filesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+    
+    // Delete the circle itself
+    batch.delete(db.collection("study_circles").doc(id));
+    
+    // Commit all deletions
+    await batch.commit();
+  },
+
   async getMessages(circleId: string): Promise<Message[]> {
     return this.getCircleMessages(circleId);
   },
