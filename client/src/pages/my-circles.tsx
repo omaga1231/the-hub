@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, MessageSquare, FileText } from "lucide-react";
 import type { StudyCircle } from "@shared/schema";
@@ -60,8 +61,8 @@ export default function MyCircles() {
             <p className="text-muted-foreground mb-4">
               Join or create a study circle to start collaborating with other students
             </p>
-            <Link href="/courses" className="text-primary hover:underline">
-              Browse Courses
+            <Link href="/courses">
+              <Button data-testid="button-browse-courses">Browse Courses</Button>
             </Link>
           </CardContent>
         </Card>
